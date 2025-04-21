@@ -1,0 +1,33 @@
+import streamlit as st
+from rag_handler import RAGSystem
+import tempfile
+
+st.title("📄 Document Q&A with RAG")
+st.caption("Powered by LangChain + OpenAI + FAISS")
+
+def main():
+    api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+    uploaded_file = st.file_uploader("Upload PDF/Text", type=["pdf", "txt"])
+    
+    if uploaded_file and api_key:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            tmp_path = tmp_file.name
+        
+        rag = RAGSystem(api_key)
+        docs = rag.load_documents(tmp_path)
+        db = rag.create_vectorstore(docs)
+        qa_chain = rag.get_qa_chain(db)
+        
+        question = st.text_input("Ask about the document:")
+        if question:
+            result = qa_chain({"query": question})
+            st.success(f"Answer: {result['result']}")
+            
+            with st.expander("See relevant chunks"):
+                docs = db.similarity_search(question)
+                for i, doc in enumerate(docs):
+                    st.caption(f"Chunk {i+1}: {doc.page_content[:200]}...")
+
+if __name__ == "__main__":
+    main()
